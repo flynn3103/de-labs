@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflow
+  namespace: argocd # This is where the Application resource itself lives
+spec:
+  destination:
+    namespace: de-labs
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - Validate=false
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+  source:
+    path: k8s
+    repoURL: https://github.com/flynn3103/de-labs
+    targetRevision: main

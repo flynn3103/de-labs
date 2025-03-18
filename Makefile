@@ -1,6 +1,12 @@
 .PHONY: deploy undeploy install-operators show-credentials clean-all check-cluster create-cluster delete-k3d-cluster
 
-MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+export MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+export APP := de-labs
+export NAMESPACE := argocd
+export VERSION := 7.3.4
+export TOOLS_PATH := tools/k8s
+export ENVIRONMENT := local
+export SCRIPT_PATH := tools/scripts
 
 # Install basic operators
 init:
@@ -15,20 +21,30 @@ init:
 		KREW="krew-${OS}_${ARCH}" && \
 		curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" && \
 		tar zxvf "${KREW}.tar.gz" && \
-		./"${KREW}" install krew && \
-		export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"; \
-		echo "Done installed krew...";
+		./"${KREW}" install krew; \
+		echo 'export PATH="${KREW_ROOT:-$$HOME/.krew}/bin:$$PATH"' >> ~/.bashrc; \
+		echo 'export PATH="${KREW_ROOT:-$$HOME/.krew}/bin:$$PATH"' >> ~/.zshrc; \
 	fi
+	@echo "Done installing krew. Please restart your shell or source your shell config file."; \
 
 # Deploy services
 deploy:
 	@echo "Starting deployment..."
 	@if [ -z "$(svc)" ]; then \
-		echo "Please specify services: make deploy svc=minio,spark,kafka,airflow,trino,mongodb,mysql,postgres,elasticsearch,harbor"; \
+		echo "Please specify services: make deploy svc=minio,spark,kafka,airflow,trino,mongodb,mysql,postgres,elasticsearch,harbor,argocd"; \
 		exit 1; \
 	fi
 	@for service in $$(echo $(svc) | tr ',' ' '); do \
 		case $$service in \
+			argocd) \
+				echo "Deploying ArgoCD..."; \
+				kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -; \
+				helm repo add argo https://argoproj.github.io/argo-helm; \
+				helm repo update argo; \
+				helm install argocd argo/argo-cd --namespace argocd \
+					--values k8s/argocd/value.yaml; \
+				kubectl apply -f k8s/argocd/app.yaml -n argocd; \
+				kubectl apply -f k8s/argocd/service.yaml -n argocd;; \
 			minio) \
 				echo "Deploying MinIO..."; \
 				kubectl krew install minio; \
@@ -50,14 +66,15 @@ deploy:
 			spark) \
 				echo "Deploying Spark..."; \
 				helm repo add bitnami https://charts.bitnami.com/bitnami; \
-				helm install spark-operator bitnami/spark --namespace de-labs --create-namespace;; \
+				helm install spark-operator bitnami/spark --namespace de-labs --create-namespace; \
+				kubectl apply -f $(MAKEFILE_DIR)/k8s/spark/spark-uui-service.yaml -n de-labs;; \
 			kafka) \
 				echo "Deploying Kafka..."; \
 				helm repo add strimzi https://strimzi.io/charts/; \
 				helm install kafka-operator strimzi/strimzi-kafka-operator --namespace de-labs; \
 				kubectl apply -f $(MAKEFILE_DIR)/k8s/kafka/kafka-cluster.yaml -n de-labs;; \
 			*) \
-				echo "Invalid service: $$service. Available services: minio,spark,kafka";; \
+				echo "Invalid service: $$service. Available services: minio,spark,kafka,airflow,trino,mongodb,mysql,postgres,elasticsearch,harbor,argocd";; \
 		esac \
 	done
 
@@ -65,11 +82,16 @@ deploy:
 undeploy:
 	@echo "Starting undeployment..."
 	@if [ -z "$(svc)" ]; then \
-		echo "Please specify services: make undeploy svc=minio,spark,kafka,airflow,trino,mongodb,mysql,postgres,elasticsearch,harbor"; \
+		echo "Please specify services: make undeploy svc=minio,spark,kafka,airflow,trino,mongodb,mysql,postgres,elasticsearch,harbor,argocd"; \
 		exit 1; \
 	fi
 	@for service in $$(echo $(svc) | tr ',' ' '); do \
 		case $$service in \
+			argocd) \
+				echo "Undeploying ArgoCD..."; \
+				kubectl delete -f k8s/argocd/app.yaml -n argocd --ignore-not-found; \
+				helm uninstall argocd -n argocd; \
+				kubectl delete namespace argocd --ignore-not-found;; \
 			minio) \
 				echo "Undeploying MinIO..."; \
 				kubectl minio tenant delete minio-tenant-1 --namespace de-labs;; \

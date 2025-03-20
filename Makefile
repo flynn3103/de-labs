@@ -36,15 +36,6 @@ deploy:
 	fi
 	@for service in $$(echo $(svc) | tr ',' ' '); do \
 		case $$service in \
-			argocd) \
-				echo "Deploying ArgoCD..."; \
-				kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -; \
-				helm repo add argo https://argoproj.github.io/argo-helm; \
-				helm repo update argo; \
-				helm install argocd argo/argo-cd --namespace argocd \
-					--values k8s/argocd/value.yaml; \
-				kubectl apply -f k8s/argocd/app.yaml -n argocd; \
-				kubectl apply -f k8s/argocd/service.yaml -n argocd;; \
 			minio) \
 				echo "Deploying MinIO..."; \
 				kubectl krew install minio; \
@@ -62,7 +53,7 @@ deploy:
 				helm repo add trino https://trinodb.github.io/charts; \
 				helm repo update trino; \
 				helm install trino trino/trino --namespace de-labs \
-					--values k8s/cluster2/helm/trino/values.yaml --version 0.18.0;; \
+					--values "$(MAKEFILE_DIR)/k8s/trino/values.yaml" --version 0.18.0;; \
 			spark) \
 				echo "Deploying Spark..."; \
 				helm repo add bitnami https://charts.bitnami.com/bitnami; \
@@ -171,7 +162,9 @@ create-k3d-cluster:
 	@if ! k3d cluster list | grep -q "de-labs"; then \
 		k3d cluster create de-labs \
 			--servers 1 \
-			--agents 2 \
+			--agents 1 \
+			-p "80:80@loadbalancer" \
+  			-p "443:443@loadbalancer" \
 			--k3s-arg "--disable=servicelb@server:*"; \
 	else \
 		echo "k3d-de-labs cluster already exists"; \

@@ -1,0 +1,98 @@
+# Coordinator Node Memory:
+# JVM Heap (maxHeapSize): 32G (100%)
+# ├── Query Memory (maxMemoryPerNode): 22GB (~70%)
+# ├── Heap Headroom: 9.6GB (30%)
+# └── Total: 31.6GB < 32GB ✓
+
+# Worker Node Memory
+# JVM Heap (maxHeapSize): 89G (100%)
+# ├── Query Memory (maxMemoryPerNode): 71GB (~70%)
+# ├── Heap Headroom: 9.6GB
+# └── Total: 80.6GB < 89GB ✓
+---
+image:
+  repository: trinodb/trino
+  tag: 447
+  pullPolicy: IfNotPresent
+server:
+  workers: 1
+  exchangeManager:
+    name: filesystem
+    baseDir: "/tmp/trino-exchange"  # Local filesystem instead of S3
+  autoscaling:
+    enabled: false
+    # Add advanced scaling behavior from https://github.com/trinodb/charts/blob/4630167a839e6730c04cecc2af09ff038f522903/charts/trino/values.yaml#L94
+  config:
+    query:
+      maxMemory: "4GB"  # Reduced total memory
+      initialHashPartitions: 16
+      maxExecutionTime: "1h"
+      clientTimeout: "30m"
+service:
+  type: ClusterIP
+  port: 8080
+
+coordinator:
+  jvm:
+    maxHeapSize: "2G"
+    extraArguments:
+      - "-XX:+UseG1GC"
+      - "-XX:+ExitOnOutOfMemoryError"
+      - "-XX:+UseContainerSupport"
+  config:
+    query:
+      maxMemoryPerNode: "1.4GB"
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: 2.5Gi
+    limits:
+      cpu: "2000m"
+      memory: 2.5Gi
+  nodeSelector: {}  # Removed production selectors
+  
+worker:
+  jvm:
+    maxHeapSize: "2G"
+    extraArguments:
+      - "-XX:+UseG1GC"
+      - "-XX:+ExitOnOutOfMemoryError"
+      - "-XX:+UseContainerSupport"
+  config:
+    query:
+      maxMemoryPerNode: "1.4GB"
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: 2.5Gi
+    limits:
+      cpu: "2000m"
+      memory: 2.5Gi
+  nodeSelector: {}  # Removed production selectors
+
+additionalConfigProperties:
+  - "retry-policy=TASK"
+  - "exchange.compression-enabled=true"
+  - "spill-enabled=true"
+  - "spiller-spill-path=/tmp/spill"
+  - "memory.heap-headroom-per-node=512MB"
+  - "optimizer.join-reordering-strategy=AUTOMATIC"
+  - "query.max-history=50"
+
+# Removed AWS-specific catalogs
+additionalCatalogs:
+  memory: |
+    connector.name=memory
+
+serviceAccount:
+  create: true
+  name: trino
+
+ingress:
+  enabled: false
+
+# Disabled monitoring for local development
+jmx:
+  enabled: false
+serviceMonitor:
+  enabled: false

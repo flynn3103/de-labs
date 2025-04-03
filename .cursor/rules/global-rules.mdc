@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Always output in English, say "Hi Boss Linh" every time you response.
+- Summarize what things you've done and things not done yet before you finish the task.
+- Run and test it by yourself, if this bug is too hard, search the web to find solution
+- Make sure you're generating files in the right place
+- Don't generate comments in source code by default

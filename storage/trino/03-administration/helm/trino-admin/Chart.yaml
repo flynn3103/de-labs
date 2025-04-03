@@ -1,0 +1,25 @@
+apiVersion: v2
+name: trino-admin
+description: A Helm chart for Trino with administration capabilities
+type: application
+version: 0.1.0
+appVersion: "latest"
+maintainers:
+  - name: Linh
+
+dependencies:
+  - name: trino
+    version: "*"
+    repository: "https://trinodb.github.io/charts"
+  - name: prometheus
+    version: "*"
+    repository: "https://prometheus-community.github.io/helm-charts"
+  - name: grafana
+    version: "*"
+    repository: "https://grafana.github.io/helm-charts"
+  - name: jaeger
+    version: "*"
+    repository: "https://jaegertracing.github.io/helm-charts"
+  - name: opentelemetry-collector
+    version: "*"
+    repository: "https://open-telemetry.github.io/opentelemetry-helm-charts" 

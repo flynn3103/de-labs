@@ -1,1 +1,7 @@
-data-on-eks/
+template/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

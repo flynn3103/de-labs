@@ -7,7 +7,7 @@ This directory contains Helm chart values and deployment scripts for configuring
 ### Trino Component Architecture
 ```mermaid
 graph TD
-    subgraph K8SNamespace["Kubernetes Namespace: trino"]
+    subgraph K8SNamespace["Trino Namespace"]
         subgraph Coordinator["Trino Coordinator"]
             CoordinatorDeployment["Deployment<br/>- Single Replica<br/>- Coordinator Config<br/>- JVM Settings"]
             CoordinatorService["Service<br/>- Port 8080<br/>- ClusterIP"]

@@ -1,0 +1,493 @@
+# Global settings
+global:
+  storageClass: standard
+
+# Trino configuration
+trino:
+  image:
+    repository: trinodb/trino
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  server:
+    workers: 2
+    coordinatorExtraConfig:
+      web-ui.enabled: true
+      web-ui.authentication.type: form
+      tracing.enabled: true
+      opentelemetry.metrics.exporter: otlp
+      opentelemetry.traces.exporter: otlp
+      opentelemetry.logs.exporter: otlp
+      opentelemetry.otlp.endpoint: http://trino-admin-opentelemetry-collector:4317
+      opentelemetry.otlp.protocol: grpc
+    workerExtraConfig:
+      tracing.enabled: true
+      opentelemetry.metrics.exporter: otlp
+      opentelemetry.traces.exporter: otlp
+      opentelemetry.logs.exporter: otlp
+      opentelemetry.otlp.endpoint: http://trino-admin-opentelemetry-collector:4317
+      opentelemetry.otlp.protocol: grpc
+
+  auth:
+    # Password file authentication
+    passwordAuth:
+      enabled: true
+      passwordFile:
+        path: /etc/trino/password.db
+        content: |
+          admin:admin
+      # HTTP Authentication
+      httpAuth:
+        enabled: true
+        type: form
+
+  additionalCatalogs:
+    tpch: |
+      connector.name=tpch
+      tpch.scaling-factor=0.01
+
+  coordinator:
+    jvm:
+      maxHeapSize: "8G"
+      extraFlags:
+        - "-javaagent:/usr/lib/trino/otel-javaagent.jar"
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
+    initContainers:
+      - name: otel-agent-download
+        image: busybox
+        command:
+          - /bin/sh
+          - -c
+          - |
+            wget -O /usr/lib/trino/otel-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.26.0/opentelemetry-javaagent.jar
+        volumeMounts:
+          - name: otel-agent
+            mountPath: /usr/lib/trino
+    extraVolumes:
+      - name: otel-agent
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: otel-agent
+        mountPath: /usr/lib/trino
+
+  worker:
+    jvm:
+      maxHeapSize: "8G"
+      extraFlags:
+        - "-javaagent:/usr/lib/trino/otel-javaagent.jar"
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
+    initContainers:
+      - name: otel-agent-download
+        image: busybox
+        command:
+          - /bin/sh
+          - -c
+          - |
+            wget -O /usr/lib/trino/otel-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.26.0/opentelemetry-javaagent.jar
+        volumeMounts:
+          - name: otel-agent
+            mountPath: /usr/lib/trino
+    extraVolumes:
+      - name: otel-agent
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: otel-agent
+        mountPath: /usr/lib/trino
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - host: trino.local
+        paths:
+          - path: /
+            pathType: Prefix
+
+# Prometheus configuration
+prometheus:
+  server:
+    retention: 15d
+  
+  serverFiles:
+    prometheus.yml:
+      scrape_configs:
+        - job_name: trino
+          scrape_interval: 15s
+          static_configs:
+            - targets:
+              - trino-coordinator:8080
+              - trino-worker:8080
+        - job_name: opentelemetry-collector
+          scrape_interval: 10s
+          static_configs:
+            - targets:
+              - trino-admin-opentelemetry-collector:8888
+
+# Grafana configuration
+grafana:
+  adminPassword: admin
+  
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://trino-admin-prometheus-server
+          access: proxy
+          isDefault: true
+        - name: Jaeger
+          type: jaeger
+          url: http://trino-admin-jaeger-query:16686
+          access: proxy
+  
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'trino'
+          orgId: 1
+          folder: 'Trino'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/trino
+
+  dashboards:
+    trino:
+      trino-overview:
+        json: |
+          {
+            "annotations": {
+              "list": [
+                {
+                  "builtIn": 1,
+                  "datasource": "-- Grafana --",
+                  "enable": true,
+                  "hide": true,
+                  "iconColor": "rgba(0, 211, 255, 1)",
+                  "name": "Annotations & Alerts",
+                  "type": "dashboard"
+                }
+              ]
+            },
+            "editable": true,
+            "gnetId": null,
+            "graphTooltip": 0,
+            "id": 1,
+            "links": [],
+            "panels": [
+              {
+                "aliasColors": {},
+                "bars": false,
+                "dashLength": 10,
+                "dashes": false,
+                "datasource": "Prometheus",
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {}
+                  },
+                  "overrides": []
+                },
+                "fill": 1,
+                "fillGradient": 0,
+                "gridPos": {
+                  "h": 8,
+                  "w": 12,
+                  "x": 0,
+                  "y": 0
+                },
+                "hiddenSeries": false,
+                "id": 2,
+                "legend": {
+                  "avg": false,
+                  "current": false,
+                  "max": false,
+                  "min": false,
+                  "show": true,
+                  "total": false,
+                  "values": false
+                },
+                "lines": true,
+                "linewidth": 1,
+                "nullPointMode": "null",
+                "options": {
+                  "alertThreshold": true
+                },
+                "percentage": false,
+                "pluginVersion": "7.2.0",
+                "pointradius": 2,
+                "points": false,
+                "renderer": "flot",
+                "seriesOverrides": [],
+                "spaceLength": 10,
+                "stack": false,
+                "steppedLine": false,
+                "targets": [
+                  {
+                    "expr": "sum(trino_execution_query_active)",
+                    "interval": "",
+                    "legendFormat": "Active Queries",
+                    "refId": "A"
+                  }
+                ],
+                "thresholds": [],
+                "timeFrom": null,
+                "timeRegions": [],
+                "timeShift": null,
+                "title": "Active Queries",
+                "tooltip": {
+                  "shared": true,
+                  "sort": 0,
+                  "value_type": "individual"
+                },
+                "type": "graph",
+                "xaxis": {
+                  "buckets": null,
+                  "mode": "time",
+                  "name": null,
+                  "show": true,
+                  "values": []
+                },
+                "yaxes": [
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  },
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  }
+                ],
+                "yaxis": {
+                  "align": false,
+                  "alignLevel": null
+                }
+              },
+              {
+                "aliasColors": {},
+                "bars": false,
+                "dashLength": 10,
+                "dashes": false,
+                "datasource": "Prometheus",
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {}
+                  },
+                  "overrides": []
+                },
+                "fill": 1,
+                "fillGradient": 0,
+                "gridPos": {
+                  "h": 8,
+                  "w": 12,
+                  "x": 12,
+                  "y": 0
+                },
+                "hiddenSeries": false,
+                "id": 3,
+                "legend": {
+                  "avg": false,
+                  "current": false,
+                  "max": false,
+                  "min": false,
+                  "show": true,
+                  "total": false,
+                  "values": false
+                },
+                "lines": true,
+                "linewidth": 1,
+                "nullPointMode": "null",
+                "options": {
+                  "alertThreshold": true
+                },
+                "percentage": false,
+                "pluginVersion": "7.2.0",
+                "pointradius": 2,
+                "points": false,
+                "renderer": "flot",
+                "seriesOverrides": [],
+                "spaceLength": 10,
+                "stack": false,
+                "steppedLine": false,
+                "targets": [
+                  {
+                    "expr": "sum(trino_memory_process_heap_used_bytes)",
+                    "interval": "",
+                    "legendFormat": "Heap Used",
+                    "refId": "A"
+                  }
+                ],
+                "thresholds": [],
+                "timeFrom": null,
+                "timeRegions": [],
+                "timeShift": null,
+                "title": "Memory Usage",
+                "tooltip": {
+                  "shared": true,
+                  "sort": 0,
+                  "value_type": "individual"
+                },
+                "type": "graph",
+                "xaxis": {
+                  "buckets": null,
+                  "mode": "time",
+                  "name": null,
+                  "show": true,
+                  "values": []
+                },
+                "yaxes": [
+                  {
+                    "format": "bytes",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  },
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  }
+                ],
+                "yaxis": {
+                  "align": false,
+                  "alignLevel": null
+                }
+              }
+            ],
+            "refresh": "10s",
+            "schemaVersion": 26,
+            "style": "dark",
+            "tags": [],
+            "templating": {
+              "list": []
+            },
+            "time": {
+              "from": "now-1h",
+              "to": "now"
+            },
+            "timepicker": {},
+            "timezone": "",
+            "title": "Trino Overview",
+            "uid": "trino-overview",
+            "version": 1
+          }
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - grafana.local
+
+# Jaeger configuration
+jaeger:
+  storage:
+    type: memory
+  
+  collector:
+    service:
+      otlp:
+        http:
+          enabled: true
+        grpc:
+          enabled: true
+
+  query:
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "16687"
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: traefik
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - jaeger.local
+
+# OpenTelemetry Collector configuration
+opentelemetry-collector:
+  mode: deployment
+  
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'otel-collector'
+              scrape_interval: 10s
+              static_configs:
+                - targets: ['${POD_IP}:8888']
+    
+    processors:
+      batch: {}
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 1000
+        spike_limit_mib: 200
+    
+    exporters:
+      prometheus:
+        endpoint: 0.0.0.0:8889
+      otlp:
+        endpoint: trino-admin-jaeger-collector:4317
+        tls:
+          insecure: true
+      logging:
+        loglevel: debug
+    
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp, logging]
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus, logging]
+
+  service:
+    type: ClusterIP 

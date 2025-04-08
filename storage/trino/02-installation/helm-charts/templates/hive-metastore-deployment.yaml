@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-hive-metastore
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: hive-metastore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hive-metastore
+  template:
+    metadata:
+      labels:
+        app: hive-metastore
+    spec:
+      containers:
+      - name: hive-metastore
+        image: {{ .Values.hive_metastore.image.repository }}:{{ .Values.hive_metastore.image.tag }}
+        ports:
+        - containerPort: 9083
+        env:
+        - name: HIVE_METASTORE_DRIVER
+          value: "{{ .Values.hive_metastore.env.HIVE_METASTORE_DRIVER }}"
+        - name: HIVE_METASTORE_JDBC_URL
+          value: "{{ .Values.hive_metastore.env.HIVE_METASTORE_JDBC_URL }}"
+        - name: HIVE_METASTORE_USER
+          value: "{{ .Values.hive_metastore.env.HIVE_METASTORE_USER }}"
+        - name: HIVE_METASTORE_PASSWORD
+          value: "{{ .Values.hive_metastore.env.HIVE_METASTORE_PASSWORD }}"
+        - name: HIVE_METASTORE_WAREHOUSE_DIR
+          value: "{{ .Values.hive_metastore.env.HIVE_METASTORE_WAREHOUSE_DIR }}"
+        - name: S3_ENDPOINT
+          value: "{{ .Values.hive_metastore.env.S3_ENDPOINT }}"
+        - name: S3_ACCESS_KEY
+          value: "{{ .Values.hive_metastore.env.S3_ACCESS_KEY }}"
+        - name: S3_SECRET_KEY
+          value: "{{ .Values.hive_metastore.env.S3_SECRET_KEY }}"
+        - name: S3_PATH_STYLE_ACCESS
+          value: "{{ .Values.hive_metastore.env.S3_PATH_STYLE_ACCESS }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-hive-metastore
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: hive-metastore
+spec:
+  ports:
+  - port: {{ .Values.hive_metastore.service.port }}
+    targetPort: 9083
+    protocol: TCP
+    name: hive-metastore
+  selector:
+    app: hive-metastore 

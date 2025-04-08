@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-metastore-db
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: metastore-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metastore-db
+  template:
+    metadata:
+      labels:
+        app: metastore-db
+    spec:
+      containers:
+      - name: metastore-db
+        image: "{{ .Values.metastore_db.image.repository }}:{{ .Values.metastore_db.image.tag }}"
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "{{ .Values.metastore_db.env.POSTGRES_USER }}"
+        - name: POSTGRES_PASSWORD
+          value: "{{ .Values.metastore_db.env.POSTGRES_PASSWORD }}"
+        - name: POSTGRES_DB
+          value: "{{ .Values.metastore_db.env.POSTGRES_DB }}"
+        volumeMounts:
+        - name: metastore-db-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: metastore-db-data
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-metastore-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-metastore-db
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: metastore-db
+spec:
+  ports:
+  - port: {{ .Values.metastore_db.service.port }}
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: metastore-db
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-metastore-db-pvc
+  namespace: {{ .Values.global.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.global.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.metastore_db.persistence.size }} 

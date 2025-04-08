@@ -13,101 +13,86 @@ services:
   # Optional services for connecting to data sources
   # Uncomment as needed
   
-  # MySQL Service
-  # mysql:
-  #   image: mysql:8.0
-  #   container_name: trino-mysql
-  #   ports:
-  #     - "3306:3306"
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: password
-  #     MYSQL_DATABASE: example
-  #   volumes:
-  #     - mysql-data:/var/lib/mysql
-  #     - ./mysql-init:/docker-entrypoint-initdb.d
-  #   networks:
-  #     - trino-net
-
   # PostgreSQL Service
-  # postgres:
-  #   image: postgres:13
-  #   container_name: trino-postgres
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: example
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
-  #     - ./postgres-init:/docker-entrypoint-initdb.d
-  #   networks:
-  #     - trino-net
+  postgres:
+    image: postgres:13
+    container_name: trino-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: example
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - trino-net
 
   # MongoDB Service
-  # mongodb:
-  #   image: mongo:5.0
-  #   container_name: trino-mongodb
-  #   ports:
-  #     - "27017:27017"
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: mongo
-  #     MONGO_INITDB_ROOT_PASSWORD: mongo
-  #   volumes:
-  #     - mongodb-data:/data/db
-  #     - ./mongo-init:/docker-entrypoint-initdb.d
-  #   networks:
-  #     - trino-net
+  mongodb:
+    image: mongo:5.0
+    container_name: trino-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - trino-net
 
   # MinIO Object Storage
-  # minio:
-  #   image: minio/minio:latest
-  #   container_name: trino-minio
-  #   ports:
-  #     - "9000:9000"
-  #     - "9001:9001"
-  #   environment:
-  #     MINIO_ROOT_USER: minio
-  #     MINIO_ROOT_PASSWORD: minio123
-  #   command: server /data --console-address ":9001"
-  #   volumes:
-  #     - minio-data:/data
-  #   networks:
-  #     - trino-net
+  minio:
+    image: minio/minio:latest
+    container_name: trino-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - trino-net
 
   # Hive Metastore Database
-  # metastore-db:
-  #   image: postgres:13
-  #   container_name: trino-metastore-db
-  #   environment:
-  #     POSTGRES_USER: hive
-  #     POSTGRES_PASSWORD: hive
-  #     POSTGRES_DB: metastore
-  #   volumes:
-  #     - metastore-db-data:/var/lib/postgresql/data
-  #   networks:
-  #     - trino-net
+  metastore-db:
+    image: postgres:13
+    container_name: trino-metastore-db
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: metastore
+    volumes:
+      - metastore-db-data:/var/lib/postgresql/data
+    networks:
+      - trino-net
 
   # Hive Metastore
-  # hive-metastore:
-  #   image: 'starburstdata/hive:3.1.2-e.18'
-  #   container_name: trino-hive-metastore
-  #   ports:
-  #     - '9083:9083'
-  #   environment:
-  #     HIVE_METASTORE_DRIVER: org.postgresql.Driver
-  #     HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore-db:5432/metastore
-  #     HIVE_METASTORE_USER: hive
-  #     HIVE_METASTORE_PASSWORD: hive
-  #     HIVE_METASTORE_WAREHOUSE_DIR: s3a://data/
-  #     S3_ENDPOINT: http://minio:9000
-  #     S3_ACCESS_KEY: minio
-  #     S3_SECRET_KEY: minio123
-  #     S3_PATH_STYLE_ACCESS: "true"
-  #   depends_on:
-  #     - metastore-db
-  #     - minio
-  #   networks:
-  #     - trino-net
+  hive-metastore:
+    image: 'starburstdata/hive:3.1.2-e.18'
+    container_name: trino-hive-metastore
+    ports:
+      - '9083:9083'
+    environment:
+      HIVE_METASTORE_DRIVER: org.postgresql.Driver
+      HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore-db:5432/metastore
+      HIVE_METASTORE_USER: hive
+      HIVE_METASTORE_PASSWORD: hive
+      HIVE_METASTORE_WAREHOUSE_DIR: s3a://data/
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_PATH_STYLE_ACCESS: "true"
+    depends_on:
+      - metastore-db
+      - minio
+    networks:
+      - trino-net
 
 networks:
   trino-net:

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-trino
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: trino
+    component: coordinator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trino
+      component: coordinator
+  template:
+    metadata:
+      labels:
+        app: trino
+        component: coordinator
+    spec:
+      containers:
+      - name: trino
+        image: "{{ .Values.trino.image.repository }}:{{ .Values.trino.image.tag }}"
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "{{ .Values.trino.resources.requests.memory }}"
+            cpu: "{{ .Values.trino.resources.requests.cpu }}"
+          limits:
+            memory: "{{ .Values.trino.resources.limits.memory }}"
+            cpu: "{{ .Values.trino.resources.limits.cpu }}"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/trino
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Release.Name }}-trino-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-trino
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: trino
+spec:
+  type: {{ .Values.trino.service.type }}
+  ports:
+  - port: {{ .Values.trino.service.port }}
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: trino
+    component: coordinator 

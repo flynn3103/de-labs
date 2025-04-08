@@ -1,0 +1,96 @@
+global:
+  storageClass: local-path
+  namespace: trino
+
+trino:
+  enabled: true
+  image:
+    repository: trinodb/trino
+    tag: 455
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 13
+  service:
+    port: 5432
+  env:
+    POSTGRES_PASSWORD: password
+    POSTGRES_DB: example
+  persistence:
+    enabled: true
+    size: 1Gi
+
+mongodb:
+  enabled: true
+  image:
+    repository: mongo
+    tag: 5.0
+  service:
+    port: 27017
+  env:
+    MONGO_INITDB_ROOT_USERNAME: mongo
+    MONGO_INITDB_ROOT_PASSWORD: mongo
+  persistence:
+    enabled: true
+    size: 1Gi
+
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: latest
+  service:
+    apiPort: 9000
+    consolePort: 9001
+  env:
+    MINIO_ROOT_USER: minio
+    MINIO_ROOT_PASSWORD: minio123
+  command: "server /data --console-address ':9001'"
+  persistence:
+    enabled: true
+    size: 10Gi
+
+metastore_db:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 13
+  service:
+    port: 5432
+  env:
+    POSTGRES_USER: hive
+    POSTGRES_PASSWORD: hive
+    POSTGRES_DB: metastore
+  persistence:
+    enabled: true
+    size: 1Gi
+
+hive_metastore:
+  enabled: true
+  image:
+    repository: starburstdata/hive
+    tag: 3.1.2-e.18
+  service:
+    port: 9083
+  env:
+    HIVE_METASTORE_DRIVER: org.postgresql.Driver
+    HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore-db:5432/metastore
+    HIVE_METASTORE_USER: hive
+    HIVE_METASTORE_PASSWORD: hive
+    HIVE_METASTORE_WAREHOUSE_DIR: s3a://data/
+    S3_ENDPOINT: http://minio:9000
+    S3_ACCESS_KEY: minio
+    S3_SECRET_KEY: minio123
+    S3_PATH_STYLE_ACCESS: "true" 
